@@ -10,6 +10,10 @@ struct Tensor4D {
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
         // TODO: 填入正确的 shape 并计算 size
+        for (int i = 0; i < 4; ++i) {
+            shape[i] = shape_[i];
+            size *= shape_[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -28,6 +32,38 @@ struct Tensor4D {
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
         // TODO: 实现单向广播的加法
+        unsigned int stride_this[4] = {1, shape[0], shape[0]*shape[1], shape[0]*shape[1]*shape[2]};
+        unsigned int stride_others[4] = {1, others.shape[0], others.shape[0]*others.shape[1], others.shape[0]*others.shape[1]*others.shape[2]};
+
+        unsigned int total_elements = shape[0]*shape[1]*shape[2]*shape[3];
+
+        for (unsigned int idx = 0; idx < total_elements; ++idx) {
+            // 计算当前元素的坐标
+            unsigned int coord[4];
+            coord[3] = idx % shape[3];
+            coord[2] = (idx / stride_this[2]) % shape[2];
+            coord[1] = (idx / stride_this[1]) % shape[1];
+            coord[0] = (idx / stride_this[0]) % shape[0];
+
+            // 计算在others中的对应坐标（广播维度取0）
+            unsigned int other_coord[4];
+            for (int d = 0; d < 4; ++d) {
+                if (others.shape[d] == 1) {
+                    other_coord[d] = 0;
+                } else {
+                    other_coord[d] = coord[d];
+                }
+            }
+
+            // 计算others中的线性索引
+            unsigned int other_idx = other_coord[0]*stride_others[0] +
+                                    other_coord[1]*stride_others[1] +
+                                    other_coord[2]*stride_others[2] +
+                                    other_coord[3]*stride_others[3];
+
+            // 执行加法
+            data[idx] += others.data[other_idx];
+        }
         return *this;
     }
 };
